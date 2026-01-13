@@ -20,7 +20,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Background Video Feed */
         #video {
             position: absolute; width: 100%; height: 100%;
             object-fit: cover; opacity: 0.1; transform: scaleX(-1);
@@ -28,7 +27,6 @@
             z-index: 0;
         }
 
-        /* Aura */
         #aura {
             position: absolute; width: 80vw; height: 80vw; max-width: 600px; max-height: 600px;
             background: radial-gradient(circle, rgba(141, 198, 63, 0.15) 0%, transparent 70%);
@@ -36,7 +34,6 @@
         }
         #aura.active { opacity: 1; }
 
-        /* AI Core with iPad-specific sizing */
         .ai-core { 
             position: relative; z-index: 10; 
             transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
@@ -52,7 +49,6 @@
             margin-bottom: 20px;
         }
 
-        /* Breathing Animation */
         @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-15px); }
@@ -76,7 +72,6 @@
         }
         .lip.speaking { height: 15px; width: 70px; border-radius: 0 0 35px 35px; background: white; }
 
-        /* Panel adjustment for iPad screen widths */
         #brief-panel {
             position: absolute; right: -100%; top: 0; width: 400px; max-width: 80%; height: 100%;
             background: rgba(0,0,0,0.92); border-left: 4px solid var(--em-green);
@@ -86,11 +81,9 @@
         }
         #brief-panel.active { right: 0; }
 
-        /* Text Styles */
         .point { margin-bottom: 15px; font-size: 1.1rem; list-style: none; padding-left: 20px; position: relative; color: #ddd; }
         .point::before { content: "•"; color: var(--em-green); position: absolute; left: 0; }
 
-        /* Buttons & Footer */
         #start-btn { 
             padding: 20px 40px; background: var(--em-green); border: none; 
             font-weight: bold; font-size: 1.2rem; cursor: pointer; color: black; 
@@ -98,22 +91,20 @@
         }
 
         .footer {
-            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            position: fixed; bottom: 20px; width: 100%; text-align: center;
             font-size: 0.8rem; color: rgba(255,255,255,0.4); letter-spacing: 1px;
-            z-index: 5;
+            z-index: 5; pointer-events: none;
         }
 
-        /* iPad Landscape Adjustments */
         @media (max-width: 1024px) {
             #brief-panel { width: 350px; }
             .ai-core.active-shift { transform: translateX(-150px); }
         }
 
-        /* iPad Portrait Adjustments */
         @media (max-width: 768px) {
-            #brief-panel { width: 100%; border-left: none; border-top: 4px solid var(--em-green); height: 40%; top: auto; bottom: -100%; transition: bottom 0.5s ease; }
+            #brief-panel { width: 100%; border-left: none; border-top: 4px solid var(--em-green); height: 45%; top: auto; bottom: -100%; transition: bottom 0.5s ease; }
             #brief-panel.active { bottom: 0; right: 0; }
-            .ai-core.active-shift { transform: translateY(-150px); }
+            .ai-core.active-shift { transform: translateY(-160px); }
         }
     </style>
 </head>
@@ -164,34 +155,55 @@
         
         let lastFrame = null, isAwake = false, motionCounter = 0, voice = null;
 
-        // Initialize Voices
         function loadVoices() {
             const voices = window.speechSynthesis.getVoices();
-            voice = voices.find(v => v.lang.includes('en')) || voices[0];
+            // Specifically look for a natural English voice
+            voice = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) || 
+                    voices.find(v => v.lang.includes('en')) || 
+                    voices[0];
         }
-        window.speechSynthesis.onvoiceschanged = loadVoices;
 
-        // Start Button Handler (Required for iPad Audio/Video)
+        // Critical for iPad: Load voices immediately and on change
+        loadVoices();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
         startBtn.addEventListener('click', bootUp);
-        startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); bootUp(); });
 
         async function bootUp() {
+            // Unlock Audio for iPad by playing a silent utterance
+            const unlock = new SpeechSynthesisUtterance("");
+            window.speechSynthesis.speak(unlock);
+
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-                v.srcObject = stream;
-                v.play();
+                // FORCE FRONT CAMERA using facingMode: "user"
+                const constraints = { 
+                    video: { 
+                        facingMode: "user",
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }, 
+                    audio: false 
+                };
                 
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                v.srcObject = stream;
+                
+                // Ensure video plays (some browsers pause it initially)
+                v.onloadedmetadata = () => {
+                    v.play();
+                };
+
                 startBtn.style.display = 'none';
                 aiUI.style.display = 'block';
-                loadVoices();
                 
-                // Start Scanning loop
                 setInterval(scanMotion, 100);
-                // Start Blink engine
                 setInterval(blink, 4000);
+                
             } catch (err) {
-                console.error("Camera access denied", err);
-                alert("Please enable camera access for motion detection.");
+                console.error("Initialization Error: ", err);
+                alert("Please ensure camera permissions are granted and you are using HTTPS.");
             }
         }
 
@@ -214,12 +226,6 @@
             lastFrame = new Uint8ClampedArray(curr);
         }
 
-        function blink() {
-            if (!isAwake) return;
-            eyes.forEach(e => e.style.height = '2px');
-            setTimeout(() => { eyes.forEach(e => e.style.height = '70px'); }, 150);
-        }
-
         function wakeUp() {
             isAwake = true;
             motionCounter = 0;
@@ -229,10 +235,17 @@
             eyes.forEach(e => e.classList.remove('closed'));
             panel.classList.add('active');
 
+            // Speak greeting
             const msg = new SpeechSynthesisUtterance("Welcome. I am Musaed, your I T virtual assistant. How can I help you today?");
-            if (voice) utterance.voice = voice;
+            if (voice) msg.voice = voice;
+            msg.rate = 0.9;
+            msg.pitch = 1.0;
             
-            msg.onstart = () => { lip.classList.add('speaking'); moveEyes(); };
+            msg.onstart = () => { 
+                lip.classList.add('speaking'); 
+                moveEyes(); 
+            };
+
             msg.onend = () => {
                 setTimeout(() => {
                     lip.classList.remove('speaking');
@@ -244,7 +257,16 @@
                     isAwake = false;
                 }, 8000);
             };
+
             window.speechSynthesis.speak(msg);
+        }
+
+        function blink() {
+            if (!isAwake) return;
+            eyes.forEach(e => e.style.height = '2px');
+            setTimeout(() => { 
+                if(isAwake) eyes.forEach(e => e.style.height = '70px'); 
+            }, 150);
         }
 
         function moveEyes() {
@@ -252,7 +274,7 @@
             const x = (Math.random() - 0.5) * 15;
             const y = (Math.random() - 0.5) * 15;
             pupils.forEach(p => p.style.transform = `translate(${x}px, ${y}px)`);
-            if (isAwake) setTimeout(moveEyes, 1500);
+            setTimeout(moveEyes, 1500);
         }
     </script>
 </body>
