@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Musaed AI | EMSTEEL IT</title>
+    <style>
+        :root { 
+            --em-blue: #0072CE; 
+            --em-green: #8DC63F; 
+            --em-grey: #0a0a0a; 
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--em-grey);
+            color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Background Video Feed */
+        #video {
+            position: absolute; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0.1; transform: scaleX(-1);
+            filter: contrast(120%) brightness(0.7);
+            z-index: 0;
+        }
+
+        /* Aura */
+        #aura {
+            position: absolute; width: 80vw; height: 80vw; max-width: 600px; max-height: 600px;
+            background: radial-gradient(circle, rgba(141, 198, 63, 0.15) 0%, transparent 70%);
+            opacity: 0; transition: opacity 1s ease; z-index: 1;
+        }
+        #aura.active { opacity: 1; }
+
+        /* AI Core with iPad-specific sizing */
+        .ai-core { 
+            position: relative; z-index: 10; 
+            transition: transform 0.6s cubic-bezier(0.19, 1, 0.22, 1);
+            text-align: center;
+        }
+        
+        .face {
+            width: 280px; height: 280px;
+            background: radial-gradient(circle, #1a2b40 0%, #000 100%);
+            border-radius: 50%; border: 4px solid #333;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            margin-bottom: 20px;
+        }
+
+        /* Breathing Animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+        .breathing { animation: float 4s ease-in-out infinite; }
+
+        .eyes-container { display: flex; gap: 50px; margin-bottom: 20px; }
+        .eye { 
+            width: 70px; height: 70px; background: white; border-radius: 50%; 
+            position: relative; overflow: hidden; transition: height 0.1s;
+        }
+        .pupil { 
+            position: absolute; width: 30px; height: 30px; background: #050505; 
+            border-radius: 50%; top: 20px; left: 20px; transition: 0.3s ease-out;
+        }
+        .eye.closed { height: 4px; margin-top: 33px; background: var(--em-green); }
+
+        .lip { 
+            width: 40px; height: 4px; background: var(--em-green); 
+            border-radius: 10px; transition: 0.3s; 
+        }
+        .lip.speaking { height: 15px; width: 70px; border-radius: 0 0 35px 35px; background: white; }
+
+        /* Panel adjustment for iPad screen widths */
+        #brief-panel {
+            position: absolute; right: -100%; top: 0; width: 400px; max-width: 80%; height: 100%;
+            background: rgba(0,0,0,0.92); border-left: 4px solid var(--em-green);
+            padding: 60px 30px; box-sizing: border-box;
+            transition: right 0.5s ease; z-index: 20;
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
+        #brief-panel.active { right: 0; }
+
+        /* Text Styles */
+        .point { margin-bottom: 15px; font-size: 1.1rem; list-style: none; padding-left: 20px; position: relative; color: #ddd; }
+        .point::before { content: "•"; color: var(--em-green); position: absolute; left: 0; }
+
+        /* Buttons & Footer */
+        #start-btn { 
+            padding: 20px 40px; background: var(--em-green); border: none; 
+            font-weight: bold; font-size: 1.2rem; cursor: pointer; color: black; 
+            border-radius: 50px; z-index: 100;
+        }
+
+        .footer {
+            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            font-size: 0.8rem; color: rgba(255,255,255,0.4); letter-spacing: 1px;
+            z-index: 5;
+        }
+
+        /* iPad Landscape Adjustments */
+        @media (max-width: 1024px) {
+            #brief-panel { width: 350px; }
+            .ai-core.active-shift { transform: translateX(-150px); }
+        }
+
+        /* iPad Portrait Adjustments */
+        @media (max-width: 768px) {
+            #brief-panel { width: 100%; border-left: none; border-top: 4px solid var(--em-green); height: 40%; top: auto; bottom: -100%; transition: bottom 0.5s ease; }
+            #brief-panel.active { bottom: 0; right: 0; }
+            .ai-core.active-shift { transform: translateY(-150px); }
+        }
+    </style>
+</head>
+<body>
+
+    <video id="video" autoplay muted playsinline></video>
+    <div id="aura"></div>
+
+    <div id="brief-panel">
+        <h2 style="color:var(--em-green); margin-top:0;">Musaed AI</h2>
+        <p style="color:white; opacity:0.7;">Smart Virtual Assistant</p>
+        <ul>
+            <li class="point">Smart IT virtual assistant for end users</li>
+            <li class="point">Instant answers to common IT queries</li>
+            <li class="point">IT services & troubleshooting guidance</li>
+            <li class="point">Enhanced self-service experience</li>
+            <li class="point">Reduced IT helpdesk workload</li>
+            <li class="point">Efficient issue resolution</li>
+        </ul>
+    </div>
+
+    <div class="ai-core breathing" id="ai-ui" style="display:none">
+        <div class="face">
+            <div class="eyes-container">
+                <div class="eye closed"><div class="pupil"></div></div>
+                <div class="eye closed"><div class="pupil"></div></div>
+            </div>
+            <div class="lip" id="lip"></div>
+        </div>
+        <div style="font-weight:900; letter-spacing:4px; color:var(--em-green); font-size:12px;">MUSAED AI</div>
+    </div>
+
+    <button id="start-btn">INITIALIZE SYSTEM</button>
+
+    <div class="footer">
+        &copy; 2025 EMSTEEL | IT Department Internal Systems
+    </div>
+
+    <canvas id="canvas-sensor" width="64" height="48" style="display:none"></canvas>
+
+    <script>
+        const v = document.getElementById('video');
+        const canvas = document.getElementById('canvas-sensor');
+        const ctx = canvas.getContext('2d', {alpha: false});
+        const lip = document.getElementById('lip'), panel = document.getElementById('brief-panel'), aiUI = document.getElementById('ai-ui');
+        const aura = document.getElementById('aura'), eyes = document.querySelectorAll('.eye'), pupils = document.querySelectorAll('.pupil');
+        const startBtn = document.getElementById('start-btn');
+        
+        let lastFrame = null, isAwake = false, motionCounter = 0, voice = null;
+
+        // Initialize Voices
+        function loadVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            voice = voices.find(v => v.lang.includes('en')) || voices[0];
+        }
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+
+        // Start Button Handler (Required for iPad Audio/Video)
+        startBtn.addEventListener('click', bootUp);
+        startBtn.addEventListener('touchstart', (e) => { e.preventDefault(); bootUp(); });
+
+        async function bootUp() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                v.srcObject = stream;
+                v.play();
+                
+                startBtn.style.display = 'none';
+                aiUI.style.display = 'block';
+                loadVoices();
+                
+                // Start Scanning loop
+                setInterval(scanMotion, 100);
+                // Start Blink engine
+                setInterval(blink, 4000);
+            } catch (err) {
+                console.error("Camera access denied", err);
+                alert("Please enable camera access for motion detection.");
+            }
+        }
+
+        function scanMotion() {
+            if (isAwake || v.readyState !== 4) return;
+
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const curr = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            
+            if (lastFrame) {
+                let diffs = 0;
+                for (let i = 0; i < curr.length; i += 16) { 
+                    if (Math.abs(curr[i] - lastFrame[i]) > 40) diffs++;
+                }
+                if (diffs > 5) motionCounter++;
+                else motionCounter = Math.max(0, motionCounter - 1);
+
+                if (motionCounter > 3) wakeUp();
+            }
+            lastFrame = new Uint8ClampedArray(curr);
+        }
+
+        function blink() {
+            if (!isAwake) return;
+            eyes.forEach(e => e.style.height = '2px');
+            setTimeout(() => { eyes.forEach(e => e.style.height = '70px'); }, 150);
+        }
+
+        function wakeUp() {
+            isAwake = true;
+            motionCounter = 0;
+            aura.classList.add('active');
+            aiUI.classList.remove('breathing');
+            aiUI.classList.add('active-shift');
+            eyes.forEach(e => e.classList.remove('closed'));
+            panel.classList.add('active');
+
+            const msg = new SpeechSynthesisUtterance("Welcome. I am Musaed, your I T virtual assistant. How can I help you today?");
+            if (voice) utterance.voice = voice;
+            
+            msg.onstart = () => { lip.classList.add('speaking'); moveEyes(); };
+            msg.onend = () => {
+                setTimeout(() => {
+                    lip.classList.remove('speaking');
+                    panel.classList.remove('active');
+                    aiUI.classList.add('breathing');
+                    aiUI.classList.remove('active-shift');
+                    eyes.forEach(e => e.classList.add('closed'));
+                    aura.classList.remove('active');
+                    isAwake = false;
+                }, 8000);
+            };
+            window.speechSynthesis.speak(msg);
+        }
+
+        function moveEyes() {
+            if (!isAwake) return;
+            const x = (Math.random() - 0.5) * 15;
+            const y = (Math.random() - 0.5) * 15;
+            pupils.forEach(p => p.style.transform = `translate(${x}px, ${y}px)`);
+            if (isAwake) setTimeout(moveEyes, 1500);
+        }
+    </script>
+</body>
+</html>
